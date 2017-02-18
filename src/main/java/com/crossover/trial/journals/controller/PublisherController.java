@@ -94,7 +94,7 @@ public class PublisherController {
 	}
 
 	public static String getDirectory(long publisherId) {
-		return Application.ROOT + "/" + publisherId;
+		return Application.ROOT.get() + "/" + publisherId;
 	}
 
 }
