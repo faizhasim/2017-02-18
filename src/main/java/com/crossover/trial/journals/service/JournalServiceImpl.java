@@ -1,26 +1,22 @@
 package com.crossover.trial.journals.service;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
 import com.crossover.trial.journals.controller.PublisherController;
-import com.crossover.trial.journals.model.Category;
-import com.crossover.trial.journals.model.Journal;
-import com.crossover.trial.journals.model.Publisher;
-import com.crossover.trial.journals.model.User;
+import com.crossover.trial.journals.model.*;
 import com.crossover.trial.journals.repository.CategoryRepository;
+import com.crossover.trial.journals.repository.JournalRepository;
 import com.crossover.trial.journals.repository.UserRepository;
-import com.crossover.trial.journals.model.Subscription;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
-import com.crossover.trial.journals.repository.JournalRepository;
+import java.io.File;
+import java.util.List;
+import java.util.function.ToLongFunction;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static java.util.Collections.EMPTY_LIST;
 
 @Service
 public class JournalServiceImpl implements JournalService {
@@ -41,24 +37,29 @@ public class JournalServiceImpl implements JournalService {
 		User persistentUser = userRepository.findOne(user.getId());
 		List<Subscription> subscriptions = persistentUser.getSubscriptions();
 		if (subscriptions != null) {
-			List<Long> ids = new ArrayList<>(subscriptions.size());
-			subscriptions.stream().forEach(s -> ids.add(s.getCategory().getId()));
+		    ToLongFunction<Subscription> extractCategoryId = s -> s.getCategory().getId();
+		    List<Long> ids = subscriptions.stream()
+                    .mapToLong(extractCategoryId)
+                    .boxed()
+                    .collect(Collectors.toList());
 			return journalRepository.findByCategoryIdIn(ids);
 		} else {
-			return Collections.EMPTY_LIST;
+			return EMPTY_LIST;
 		}
 	}
 
 	@Override
 	public List<Journal> publisherList(Publisher publisher) {
 		Iterable<Journal> journals = journalRepository.findByPublisher(publisher);
-		return StreamSupport.stream(journals.spliterator(), false).collect(Collectors.toList());
+		return StreamSupport
+                .stream(journals.spliterator(), false)
+                .collect(Collectors.toList());
 	}
 
 	@Override
 	public Journal publish(Publisher publisher, Journal journal, Long categoryId) throws ServiceException {
 		Category category = categoryRepository.findOne(categoryId);
-		if(category == null) {
+		if (category == null) {
 			throw new ServiceException("Category not found");
 		}
 		journal.setPublisher(publisher);
