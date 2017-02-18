@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import com.crossover.trial.journals.model.Journal;
 import org.apache.commons.io.IOUtils;
@@ -36,6 +37,10 @@ public class JournalController {
 	@Autowired
 	private UserRepository userRepository;
 
+	private Predicate<Subscription> withSameCategory(Category category) {
+		return s -> s.getCategory().getId().equals(category.getId());
+	}
+
 	@ResponseBody
 	@RequestMapping(value = "/view/{id}", method = RequestMethod.GET, produces = "application/pdf")
 	public ResponseEntity renderDocument(@AuthenticationPrincipal Principal principal, @PathVariable("id") Long id)
@@ -45,12 +50,20 @@ public class JournalController {
 		CurrentUser activeUser = (CurrentUser) ((Authentication) principal).getPrincipal();
 		User user = userRepository.findOne(activeUser.getUser().getId());
 		List<Subscription> subscriptions = user.getSubscriptions();
+
 		Optional<Subscription> subscription = subscriptions.stream()
-				.filter(s -> s.getCategory().getId().equals(category.getId())).findFirst();
-		if (subscription.isPresent() || journal.getPublisher().getId().equals(user.getId())) {
-			File file = new File(PublisherController.getFileName(journal.getPublisher().getId(), journal.getUuid()));
-			InputStream in = new FileInputStream(file);
-			return ResponseEntity.ok(IOUtils.toByteArray(in));
+				.filter(withSameCategory(category))
+				.findFirst();
+
+		boolean isSamePublisher = journal.getPublisher().getId().equals(user.getId());
+		if (subscription.isPresent() || isSamePublisher) {
+			File file = new File(PublisherController.getFileName(
+				journal.getPublisher().getId(),
+				journal.getUuid()
+			));
+			try (InputStream in = new FileInputStream(file)) {
+				return ResponseEntity.ok(IOUtils.toByteArray(in));
+			}
 		} else {
 			return ResponseEntity.notFound().build();
 		}
