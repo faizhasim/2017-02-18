@@ -17,9 +17,8 @@ public class ApplicationTest {
         Application.validateRootPath(invalidPath);
     }
 
-    @Test
-    public void shouldNotThrowErrorOnValidDirectory() {
-        String validPath = System.getProperty("user.home");
+    @Test public void shouldNotThrowErrorOnValidDirectory() {
+        String validPath = System.getProperty("java.io.tmpdir");
         Application.validateRootPath(validPath);
     }
 }

@@ -25,12 +25,9 @@ public class Application {
 		return rootpath;
 	}
 
-	static {
+	public static void main(String[] args) throws Exception {
 		// attempt to validate ROOT path during bootstrapping
 		ROOT.get();
-	}
-
-	public static void main(String[] args) throws Exception {
 		SpringApplication app = new SpringApplicationBuilder(Application.class).build();
 		app.run(args);
 	}

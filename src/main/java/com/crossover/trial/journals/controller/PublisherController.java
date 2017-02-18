@@ -1,13 +1,10 @@
 package com.crossover.trial.journals.controller;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.security.Principal;
-import java.util.Optional;
-import java.util.UUID;
-
+import com.crossover.trial.journals.Application;
 import com.crossover.trial.journals.model.Journal;
+import com.crossover.trial.journals.model.Publisher;
+import com.crossover.trial.journals.repository.PublisherRepository;
+import com.crossover.trial.journals.service.CurrentUser;
 import com.crossover.trial.journals.service.JournalService;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,15 +20,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import com.crossover.trial.journals.Application;
-import com.crossover.trial.journals.model.Publisher;
-import com.crossover.trial.journals.repository.PublisherRepository;
-import com.crossover.trial.journals.service.CurrentUser;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.security.Principal;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
+
+import static com.crossover.trial.journals.javautil.FileIOs.createDirectoryIfNotExist;
+import static java.io.File.*;
 
 @Controller
 public class PublisherController {
 
-	private final static Logger log = Logger.getLogger(PublisherController.class);
+	private static final Logger log = Logger.getLogger(PublisherController.class);
+	private static final String REDIRECT_PUBLISHER_PUBLISH = "redirect:/publisher/publish";
 
 	@Autowired
 	private PublisherRepository publisherRepository;
@@ -46,55 +50,76 @@ public class PublisherController {
 
 	@RequestMapping(method = RequestMethod.POST, value = "/publisher/publish")
 	@PreAuthorize("hasRole('PUBLISHER')")
-	public String handleFileUpload(@RequestParam("name") String name, @RequestParam("category")Long categoryId, @RequestParam("file") MultipartFile file,
+	public String handleFileUpload(@RequestParam("name") String name, @RequestParam("category") Long categoryId, @RequestParam("file") MultipartFile multipartFile,
 			RedirectAttributes redirectAttributes, @AuthenticationPrincipal Principal principal) {
 
 		CurrentUser activeUser = (CurrentUser) ((Authentication) principal).getPrincipal();
-		Optional<Publisher> publisher = publisherRepository.findByUser(activeUser.getUser());
+		Optional<Publisher> publisherOptional = publisherRepository.findByUser(activeUser.getUser());
 
-		String uuid = UUID.randomUUID().toString();
-		File dir = new File(getDirectory(publisher.get().getId()));
-		createDirectoryIfNotExist(dir);
-
-		File f = new File(getFileName(publisher.get().getId(), uuid));
-		if (!file.isEmpty()) {
-			try {
-				BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(f));
-				FileCopyUtils.copy(file.getInputStream(), stream);
-				stream.close();
-				Journal journal = new Journal();
-				journal.setUuid(uuid);
-				journal.setName(name);
-				journalService.publish(publisher.get(), journal, categoryId);
-				return "redirect:/publisher/browse";
-			} catch (Exception e) {
-				redirectAttributes.addFlashAttribute("message",
-						"You failed to publish " + name + " => " + e.getMessage());
-			}
-		} else {
-			redirectAttributes.addFlashAttribute("message",
-					"You failed to upload " + name + " because the file was empty");
-		}
-
-		return "redirect:/publisher/publish";
+		return publisherOptional
+			.map(processJournalPublication(name, categoryId, multipartFile, redirectAttributes))
+			.orElseGet(() -> {
+				redirectAttributes.addFlashAttribute(
+					"message",
+					"Publisher not found."
+				);
+				return REDIRECT_PUBLISHER_PUBLISH;
+			});
 	}
 
-	private boolean createDirectoryIfNotExist(File dir) {
-		if (!dir.exists()) {
-			boolean created = dir.mkdirs();
-			if (!created) {
-				return false;
-			}
-		}
-		return true;
+	private Function<Publisher, String> processJournalPublication(
+			String name,
+			Long categoryId,
+			MultipartFile multipartFile,
+			RedirectAttributes redirectAttributes
+	) {
+		return publisher -> {
+            String uuid = UUID.randomUUID().toString();
+            File f = fileLocationForPublisher(publisher, uuid);
+            if (!multipartFile.isEmpty()) {
+                try {
+					try (BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(f))) {
+						FileCopyUtils.copy(multipartFile.getInputStream(), stream);
+					}
+                    publishJournal(name, categoryId, publisher, uuid);
+                    return "redirect:/publisher/browse";
+                } catch (Exception e) {
+                    log.info("Unable to process uploaded file", e);
+                    redirectAttributes.addFlashAttribute(
+						"message",
+						"You failed to publish " + name + " => " + e.getMessage()
+					);
+                }
+            } else {
+                redirectAttributes.addFlashAttribute(
+					"message",
+					"You failed to upload " + name + " because the file was empty"
+				);
+            }
+
+            return REDIRECT_PUBLISHER_PUBLISH;
+        };
+	}
+
+	File fileLocationForPublisher(Publisher publisher, String fileUuid) {
+		File dir = new File(getDirectory(publisher.getId()));
+		createDirectoryIfNotExist(dir);
+		return new File(getFileName(publisher.getId(), fileUuid));
+	}
+
+	void publishJournal(String name, Long categoryId, Publisher publisher, String uuid) {
+		Journal journal = new Journal();
+		journal.setUuid(uuid);
+		journal.setName(name);
+		journalService.publish(publisher, journal, categoryId);
 	}
 
 	public static String getFileName(long publisherId, String uuid) {
-		return getDirectory(publisherId) + "/" + uuid + ".pdf";
+		return getDirectory(publisherId) + separator + uuid + ".pdf";
 	}
 
-	public static String getDirectory(long publisherId) {
-		return Application.ROOT.get() + "/" + publisherId;
+	private static String getDirectory(long publisherId) {
+		return Application.ROOT.get() + separator + publisherId;
 	}
 
 }
