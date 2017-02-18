@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface JournalService {
 
-	List listAll(User user);
+	List<Journal> listAll(User user);
 
 	List<Journal> publisherList(Publisher publisher);
 
