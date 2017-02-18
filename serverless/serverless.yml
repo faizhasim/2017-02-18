@@ -93,14 +93,14 @@ resources:
         MessageRetentionPeriod: 172800 # 2 days
         ReceiveMessageWaitTimeSeconds: 20
         VisibilityTimeout: 60 # seconds
-    SubscriptionPublicationSns:
-      Type: AWS::SNS::Topic
-      Properties:
-        TopicName: ${self:service}-${self:provider.stage}-subscriptionpublication
-        Subscription:
-          - Endpoint:
-              Fn::GetAtt: [AllSubscriptionsSqs, Arn]
-            Protocol: sqs
+#    SubscriptionPublicationSns:
+#      Type: AWS::SNS::Topic
+#      Properties:
+#        TopicName: ${self:service}-${self:provider.stage}-subscriptionpublication
+#        Subscription:
+#          - Endpoint:
+#              Fn::GetAtt: [AllSubscriptionsSqs, Arn]
+#            Protocol: sqs
 
             #### SNSTopicJournalsfaizjournalpublication
 #  Outputs:

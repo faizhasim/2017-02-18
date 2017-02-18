@@ -2,60 +2,94 @@ const R = require('ramda');
 const AWS = require('aws-sdk');
 
 const ses = new AWS.SES();
-// const emailsender = require('./emailsender');
+
+const normalizeJsonMsg = jsonMsg => {
+  const originalJsonMsg = Object.assign({}, jsonMsg);
+  return jsonMsg.subscriptions.map(subscription => Object.assign({}, originalJsonMsg, {subscription: subscription}));
+};
 
 const extractJSONDataFromSNSMessage = R.pipe(
   R.prop('Records'),
   R.head,
   R.prop('Sns'),
   R.prop('Message'),
-  JSON.parse
+  JSON.parse,
+  normalizeJsonMsg
 );
 
+const generateTitle = journalJson => {
+  const journalName = journalJson.name;
+  const categoryName = journalJson.category.name;
+  return `New Journal "${journalName} added for "${categoryName}" Category`;
+};
 
+const generateEmailBody = journalJson => {
+  const journalName = journalJson.name;
+  const categoryName = journalJson.category.name;
+  const loginName = journalJson.subscription.user.loginName;
+  const viewUrl = `http://localhost:8080/view/${journalJson.id}`;
+  const publicationName = journalJson.publisher.name;
+  const publisherName = journalJson.publisher.user.loginName;
+
+  return `
+    <h1>New Journal "${journalName}" added for "${categoryName}" Category</h1>
+    
+    <h2>Hi <strong>${loginName}!</strong></h2>
+    
+    <p>
+      A new journal has been recently published on <strong>"${publicationName}"</strong> by <strong>${publisherName}</strong>
+      You can view it at <a href="${viewUrl}">${viewUrl}</a>.    
+    </p>
+  `;
+};
 
 module.exports = (event, context, callback) => {
 
-  const jsonMsg = extractJSONDataFromSNSMessage(event);
-  const toAddress = jsonMsg.publisher.user.email;
-  const params = {
-    Destination: {
-      ToAddresses: [toAddress]
-    },
-    Message: {
+  const journalJsons = extractJSONDataFromSNSMessage(event);
 
-      Subject: {
-        Data: 'test',
-        Charset: 'UTF-8'
-      },
+  const emailPromises = journalJsons.map(journalJson => new Promise((resolve, reject) => {
+      const toAddress = journalJson.publisher.user.email;
+      const params = {
+        Destination: {
+          ToAddresses: [toAddress]
+        },
+        Message: {
 
-      Body: {
-        Html: {
-          Data: JSON.stringify(jsonMsg) + "<br/><br/><b>HELLO!!!</b>",
-          Charset: 'UTF-8'
+          Subject: {
+            Data: generateTitle(journalJson),
+            Charset: 'UTF-8'
+          },
+
+          Body: {
+            Html: {
+              Data: generateEmailBody(journalJson),
+              Charset: 'UTF-8'
+            }
+          }
+        },
+        Source: 'faizhasim@gmail.com',
+        ReplyToAddresses: [
+          'no-reply@whatever.com <faizhasim@gmail.com>'
+        ]
+      };
+      console.log('[DEBUG] ', JSON.stringify(journalJson));
+
+      ses.sendEmail(params, (err, data) => {
+        if (err) {
+          console.log('Failed to send email! ', err, err.stack);
+          return reject(err);
         }
-      }
-    },
-    Source: 'faizhasim@gmail.com',
-    ReplyToAddresses: [
-      'Mohd Faiz Hasim <faizhasim@gmail.com>'
-    ]
-  };
-  console.log(jsonMsg, params);
-  console.log(JSON.stringify(jsonMsg));
-  // const sample = {"id":7,"name":"2017-02-18T17:30:41","publishDate":1487410244350,"publisher":{"id":1,"name":"Test Publisher1 "},"uuid":"003d06ae-0aa7-4677-a796-863d17786ea7","category":{"id":1,"name":"immunology"}};
+        return resolve(data);
+    });
+  }));
 
-  ses.sendEmail(params, (err, data) => {
-    if (err) {
-      console.log(err, err.stack);
-      // return reject(err);
+  return Promise.all(emailPromises)
+    .then(() => callback())
+    .catch(err => {
+      console.log('Error: ', err, err.stack);
       callback(err);
-    }
-    // return resolve(data);
-    callback(null, data);
-  });
-
-  // callback(null, {ok: true});
+      throw err;
+    });
 };
 
 
