@@ -20,6 +20,10 @@ provider:
       Resource: arn:aws:sns:${self:provider.region}:*:${self:service}-${self:provider.stage}-*
     - Effect: Allow
       Action:
+      - "*"
+      Resource: arn:aws:sqs:${self:provider.region}:*:${self:service}-${self:provider.stage}-*
+    - Effect: Allow
+      Action:
       - "ses:*"
       Resource: "*"
 

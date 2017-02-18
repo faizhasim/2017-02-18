@@ -2,6 +2,8 @@ const R = require('ramda');
 const AWS = require('aws-sdk');
 
 const ses = new AWS.SES();
+const sqs = new AWS.SQS({region:'us-west-2'});
+
 
 const normalizeJsonMsg = jsonMsg => {
   const originalJsonMsg = Object.assign({}, jsonMsg);
@@ -13,8 +15,7 @@ const extractJSONDataFromSNSMessage = R.pipe(
   R.head,
   R.prop('Sns'),
   R.prop('Message'),
-  JSON.parse,
-  normalizeJsonMsg
+  JSON.parse
 );
 
 const generateTitle = journalJson => {
@@ -45,48 +46,67 @@ const generateEmailBody = journalJson => {
 
 module.exports = (event, context, callback) => {
 
-  const journalJsons = extractJSONDataFromSNSMessage(event);
+  const unnormalizedJournalJsons = extractJSONDataFromSNSMessage(event);
 
-  const emailPromises = journalJsons.map(journalJson => new Promise((resolve, reject) => {
-      const toAddress = journalJson.publisher.user.email;
-      const params = {
-        Destination: {
-          ToAddresses: [toAddress]
-        },
-        Message: {
+  const getAwsAccountId = () => iam.getUser().promise().then(data => {
+    const arn = data.User.Arn;
+    const regex = /^arn:aws:iam:([A-Za-z0-9-]*):([0-9]*):user/;
+    return regex.exec(arn)[2];
+  });
 
-          Subject: {
-            Data: generateTitle(journalJson),
-            Charset: 'UTF-8'
-          },
-
-          Body: {
-            Html: {
-              Data: generateEmailBody(journalJson),
-              Charset: 'UTF-8'
-            }
-          }
-        },
-        Source: 'faizhasim@gmail.com',
-        ReplyToAddresses: [
-          'no-reply@whatever.com <faizhasim@gmail.com>'
-        ]
+  const sqsPromises = unnormalizedJournalJsons => {
+      const sqsParams = {
+        MessageBody: JSON.stringify(unnormalizedJournalJsons),
+        QueueUrl: 'https://sqs.us-west-2.amazonaws.com/891170581541/journals-faiz-allsubscriptions'
       };
-      console.log('[DEBUG] ', JSON.stringify(journalJson));
+      console.log(`[DEBUG] Sending message to SQS: ${sqsParams.QueueUrl}`);
+      return sqs.sendMessage(sqsParams).promise().then(() => unnormalizedJournalJsons);
+  };
 
-      ses.sendEmail(params, (err, data) => {
-        if (err) {
-          console.log('Failed to send email! ', err, err.stack);
-          return reject(err);
+  const emailPromises = (journalJsons) => journalJsons.map(journalJson => {
+    const toAddress = journalJson.publisher.user.email;
+    const params = {
+      Destination: {
+        ToAddresses: [toAddress]
+      },
+      Message: {
+
+        Subject: {
+          Data: generateTitle(journalJson),
+          Charset: 'UTF-8'
+        },
+
+        Body: {
+          Html: {
+            Data: generateEmailBody(journalJson),
+            Charset: 'UTF-8'
+          }
         }
-        return resolve(data);
-    });
-  }));
+      },
+      Source: 'faizhasim@gmail.com',
+      ReplyToAddresses: [
+        'no-reply@whatever.com <faizhasim@gmail.com>'
+      ]
+    };
+    console.log('[DEBUG] ', JSON.stringify(journalJson));
 
-  return Promise.all(emailPromises)
-    .then(() => callback())
+    return ses.sendEmail(params).promise().then(() => journalJson);
+  });
+
+  return sqsPromises(unnormalizedJournalJsons)
+    .then(normalizeJsonMsg)
+    .then(emailPromises)
+    .then(promises => {
+      console.log(`[DEBUG] promises = `, promises);
+      try {
+        Promise.all(promises).then(() => {});
+      } catch (err) {
+        console.log('whatever: ', err);
+      }
+      return callback();
+    })
     .catch(err => {
-      console.log('Error: ', err, err.stack);
+        console.log('Error: ', err, err.stack);
       callback(err);
       throw err;
     });
