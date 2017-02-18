@@ -1,0 +1,19 @@
+{
+  "properties": [
+    {
+      "name": "application.aws.access-key-id",
+      "type": "java.lang.String",
+      "description": "Description for application.aws.access-key-id."
+    },
+    {
+      "name": "application.aws.secret-access-key",
+      "type": "java.lang.String",
+      "description": "Description for application.aws.secret-access-key."
+    },
+    {
+      "name": "application.aws.journal-chan¡ges-arn",
+      "type": "java.lang.String",
+      "description": "Description for application.aws.journal-chan¡ges-arn."
+    }
+  ]
+}

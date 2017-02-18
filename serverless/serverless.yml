@@ -1,0 +1,116 @@
+
+service: journals
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  stage: faiz
+  region: us-west-2
+  runtime: nodejs4.3
+  cfLogs: true
+
+# you can add statements to the Lambda function's IAM Role here
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+      - "*"
+      Resource: arn:aws:sns:${self:provider.region}:*:${self:service}-${self:provider.stage}-*
+    - Effect: Allow
+      Action:
+      - "*"
+      Resource: arn:aws:sqs:${self:provider.region}:*:${self:service}-${self:provider.stage}-*
+    - Effect: Allow
+      Action:
+      - "ses:*"
+      Resource: "*"
+
+# you can define service wide environment variables here
+#  environment:
+#    variable1: value1
+
+# you can add packaging information here
+#package:
+#  include:
+#    - include-me.js
+#    - include-me-dir/**
+#  exclude:
+#    - exclude-me.js
+#    - exclude-me-dir/**
+
+functions:
+  journalpublication:
+    handler: handler.journalpublication
+    events:
+      - sns: "${self:service}-${self:provider.stage}-journalpublication"
+  healthcheck:
+    handler: handler.healthcheck
+    events:
+      - http:
+          method: get
+          path: health
+
+#    The following are a few example events you can configure
+#    NOTE: Please make sure to change your handler code to work with those events
+#    Check the event documentation for details
+#    events:
+#      - http:
+#          path: users/create
+#          method: get
+#      - s3: ${env:BUCKET}
+#      - schedule: rate(10 minutes)
+#      - sns: greeter-topic
+#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
+#      - alexaSkill
+#      - iot:
+#          sql: "SELECT * FROM 'some_topic'"
+#      - cloudwatchEvent:
+#          event:
+#            source:
+#              - "aws.ec2"
+#            detail-type:
+#              - "EC2 Instance State-change Notification"
+#            detail:
+#              state:
+#                - pending
+
+#    Define function environment variables here
+#    environment:
+#      variable2: value2
+
+# you can add CloudFormation resource templates here
+resources:
+  Resources:
+#    AllJournalsSqs:
+#      Type: AWS::SQS::Queue
+#      Properties:
+#        QueueName: ${self:service}-${self:provider.stage}-alljournals
+#        MessageRetentionPeriod: 172800 # 2 days
+#        ReceiveMessageWaitTimeSeconds: 20
+#        VisibilityTimeout: 60 # seconds
+    AllSubscriptionsSqs:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:provider.stage}-allsubscriptions
+        MessageRetentionPeriod: 172800 # 2 days
+        ReceiveMessageWaitTimeSeconds: 20
+        VisibilityTimeout: 60 # seconds
+#    SubscriptionPublicationSns:
+#      Type: AWS::SNS::Topic
+#      Properties:
+#        TopicName: ${self:service}-${self:provider.stage}-subscriptionpublication
+#        Subscription:
+#          - Endpoint:
+#              Fn::GetAtt: [AllSubscriptionsSqs, Arn]
+#            Protocol: sqs
+
+            #### SNSTopicJournalsfaizjournalpublication
+#  Outputs:
+#    SubscriptionPublicationArn:
+#      Description: "${self:service}-${self:provider.stage}-subscriptionpublication TopicName"
+#      Value:
+#       Fn::GetAtt:
+#         - JournalPublicationSns
+#         - TopicName

@@ -50,8 +50,13 @@ public class PublisherController {
 
 	@RequestMapping(method = RequestMethod.POST, value = "/publisher/publish")
 	@PreAuthorize("hasRole('PUBLISHER')")
-	public String handleFileUpload(@RequestParam("name") String name, @RequestParam("category") Long categoryId, @RequestParam("file") MultipartFile multipartFile,
-			RedirectAttributes redirectAttributes, @AuthenticationPrincipal Principal principal) {
+	public String handleFileUpload(
+			@RequestParam("name") String name,
+			@RequestParam("category") Long categoryId,
+			@RequestParam("file") MultipartFile multipartFile,
+			RedirectAttributes redirectAttributes,
+			@AuthenticationPrincipal Principal principal
+	) {
 
 		CurrentUser activeUser = (CurrentUser) ((Authentication) principal).getPrincipal();
 		Optional<Publisher> publisherOptional = publisherRepository.findByUser(activeUser.getUser());

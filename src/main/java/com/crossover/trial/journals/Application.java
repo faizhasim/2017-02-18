@@ -16,7 +16,8 @@ import static com.crossover.trial.journals.javautil.Suppliers.memoize;
 public class Application {
 
 	public static final Supplier<String> ROOT = memoize(() ->
-			validateRootPath(System.getProperty("upload-dir", System.getProperty("user.home") + "/upload")));
+		validateRootPath(System.getProperty("upload-dir", System.getProperty("user.home") + "/upload"))
+	);
 
 	static String validateRootPath(String rootpath) throws ValidationException {
 		if (!new File(rootpath).isDirectory()) {

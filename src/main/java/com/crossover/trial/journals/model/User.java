@@ -38,6 +38,9 @@ public class User {
 	@Enumerated(EnumType.STRING)
 	private Role role;
 
+	@Column(nullable = false)
+	private String email;
+
 	@OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
 	@Cascade(CascadeType.ALL)
 	private List<Subscription> subscriptions;
@@ -80,6 +83,14 @@ public class User {
 
 	public void setEnabled(Boolean enabled) {
 		this.enabled = enabled;
+	}
+
+	public String getEmail() {
+		return email;
+	}
+
+	public void setEmail(String email) {
+		this.email = email;
 	}
 
 	public List<Subscription> getSubscriptions() {
