@@ -3,6 +3,7 @@ package com.crossover.trial.journals.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import com.crossover.trial.journals.model.Category;
 import com.crossover.trial.journals.repository.CategoryRepository;
@@ -34,24 +35,29 @@ public class UserServiceImpl implements UserService {
 
 	@Override
 	public void subscribe(User user, Long categoryId) {
-		List<Subscription> subscriptions;
-		subscriptions = user.getSubscriptions();
+		List<Subscription> subscriptions = user.getSubscriptions();
 		if (subscriptions == null) {
 			subscriptions = new ArrayList<>();
 		}
+
 		Optional<Subscription> subscr = subscriptions.stream()
-				.filter(s -> s.getCategory().getId().equals(categoryId)).findFirst();
+				.filter(withCategoryId(categoryId))
+				.findFirst();
 		if (!subscr.isPresent()) {
 			Subscription s = new Subscription();
 			s.setUser(user);
 			Category category = categoryRepository.findOne(categoryId);
-			if(category == null) {
+			if (category == null) {
 				throw new ServiceException("Category not found");
 			}
 			s.setCategory(category);
 			subscriptions.add(s);
 			userRepository.save(user);
 		}
+	}
+
+	static Predicate<? super Subscription> withCategoryId(Long categoryId) {
+		return s -> s.getCategory().getId().equals(categoryId);
 	}
 
 	@Override
