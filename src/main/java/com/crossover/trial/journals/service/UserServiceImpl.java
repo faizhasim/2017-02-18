@@ -1,18 +1,17 @@
 package com.crossover.trial.journals.service;
 
+import com.crossover.trial.journals.model.Category;
+import com.crossover.trial.journals.model.Subscription;
+import com.crossover.trial.journals.model.User;
+import com.crossover.trial.journals.repository.CategoryRepository;
+import com.crossover.trial.journals.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-
-import com.crossover.trial.journals.model.Category;
-import com.crossover.trial.journals.repository.CategoryRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import com.crossover.trial.journals.model.Subscription;
-import com.crossover.trial.journals.model.User;
-import com.crossover.trial.journals.repository.UserRepository;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -23,7 +22,7 @@ public class UserServiceImpl implements UserService {
 	@Autowired
 	private CategoryRepository categoryRepository;
 
-	@Autowired
+    @Autowired
 	public UserServiceImpl(UserRepository userRepository) {
 		this.userRepository = userRepository;
 	}
@@ -38,6 +37,7 @@ public class UserServiceImpl implements UserService {
 		List<Subscription> subscriptions = user.getSubscriptions();
 		if (subscriptions == null) {
 			subscriptions = new ArrayList<>();
+			user.setSubscriptions(subscriptions);
 		}
 
 		Optional<Subscription> subscr = subscriptions.stream()

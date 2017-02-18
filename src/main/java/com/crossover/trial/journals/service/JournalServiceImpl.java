@@ -5,6 +5,7 @@ import com.crossover.trial.journals.model.*;
 import com.crossover.trial.journals.repository.CategoryRepository;
 import com.crossover.trial.journals.repository.JournalRepository;
 import com.crossover.trial.journals.repository.UserRepository;
+import com.crossover.trial.journals.service.messaging.MessagingService;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,6 +32,9 @@ public class JournalServiceImpl implements JournalService {
 
 	@Autowired
 	private CategoryRepository categoryRepository;
+
+	@Autowired
+    private MessagingService messagingService;
 
 	@Override
 	public List<Journal> listAll(User user) {
@@ -65,11 +69,17 @@ public class JournalServiceImpl implements JournalService {
 		journal.setPublisher(publisher);
 		journal.setCategory(category);
 		try {
-			return journalRepository.save(journal);
+			Journal savedJournal = journalRepository.save(journal);
+            try {
+                messagingService.publishJournalChanges(savedJournal);
+            } catch (MessagingService.MessageDeliveryException e) {
+                log.warn("Unable to publish notification message on Journal " + savedJournal.getId() + " changes", e);
+            }
+            return savedJournal;
 		} catch (DataIntegrityViolationException e) {
 			throw new ServiceException(e.getMessage(), e);
 		}
-	}
+    }
 
 	@Override
 	public void unPublish(Publisher publisher, Long id) throws ServiceException {

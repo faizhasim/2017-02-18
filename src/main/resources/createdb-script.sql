@@ -5,7 +5,8 @@ CREATE TABLE user
     enabled BIT(1) NOT NULL,
     login_name VARCHAR(255) NOT NULL,
     pwd VARCHAR(255) NOT NULL,
-    role VARCHAR(255) NOT NULL
+    role VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL
 );
 CREATE TABLE item
 (
